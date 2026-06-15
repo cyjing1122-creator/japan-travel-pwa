@@ -56,7 +56,7 @@ window.onload = () => {
 };
 
 // ====== 🤖 注入 Gemini AI 視覺辨識大腦 ======
-const GEMINI_API_KEY = 'AQ.Ab8RN6KNQaKU83Z9laZ54obkN_SdAn5fwzOZZ2LXSXPi9wOpxw'; 
+const GEMINI_API_KEY = 'AQ.Ab8RN6JruZWB1SYeisb1aMQd2Kkqep1-eH5j7afacf_kuFemmw'; 
 const receiptInput = document.getElementById('receipt-file');
 const btnAllowance = document.getElementById('btn-allowance');
 const aiResultDiv = document.getElementById('ai-result');
