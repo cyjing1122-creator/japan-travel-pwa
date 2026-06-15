@@ -98,12 +98,22 @@ if (receiptInput) {
       });
 
       const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(`${result.error.status || 'API錯誤'} - ${result.error.message}`);
+      }
+
+      if (!result.candidates || result.candidates.length === 0) {
+        throw new Error('Gemini 沒有回傳任何辨識內容，請確認圖片是否清晰。');
+      }
+
       const aiText = result.candidates[0].content.parts[0].text;
       aiResultDiv.innerHTML = `<strong>🤖 AI 智慧辨識成果：</strong><br><br>${aiText.replace(/\n/g, '<br>')}`;
 
     } catch (error) {
       console.error(error);
-      aiResultDiv.innerHTML = '❌ 辨識失敗。請檢查 API Key 是否正確，或換張更清晰的照片試試！';
+      // 這裡會直接把真正的錯誤原因吐在畫面上，我們就不用瞎猜了！
+      aiResultDiv.innerHTML = `❌ 系統通訊失敗。<br>原因：${error.message || error}<br><br>請確認金鑰無誤，或用手機開啟「無痕分頁」測試以避開舊網頁快取。`;
     } finally {
       btnAllowance.innerText = '📷 拍下日本收據辨識';
       btnAllowance.disabled = false;
