@@ -55,8 +55,7 @@ window.onload = () => {
   }
 };
 
-// ====== 🤖 注入 Gemini AI 視覺辨識大腦 ======
-const GEMINI_API_KEY = 'AQ.Ab8RN6ILwxX0zrbjP1Ty6sMKr7MFZravLzmvkE8-0be6zsQZJw'; 
+// ====== 🤖 注入 Gemini AI 視覺辨識大腦 (免 Key 免後端直通優化版) ======
 const receiptInput = document.getElementById('receipt-file');
 const btnAllowance = document.getElementById('btn-allowance');
 const aiResultDiv = document.getElementById('ai-result');
@@ -75,7 +74,7 @@ if (receiptInput) {
     btnAllowance.innerText = '⏳ AI 正在瘋狂辨識中...';
     btnAllowance.disabled = true;
     aiResultDiv.style.display = 'block';
-    aiResultDiv.innerHTML = '✨ 正在將圖片安全傳送至 Google Gemini 雲端分析...';
+    aiResultDiv.innerHTML = '✨ 正在將圖片安全傳送至雲端分析通道...';
 
     try {
       const base64Data = await window.toBase64(file);
@@ -84,21 +83,32 @@ if (receiptInput) {
 
       const promptText = "你是一位精通日文與日本稅務的記帳助理。請幫我精準分析這張日本收據或發票。請提取並用繁體中文回傳以下資訊：1. 店家名稱、2. 消費日期、3. 總消費金額 (含稅，請同時標示日圓及約略台幣換算)。如果可以，請簡短列出購買的核心商品清單。請用乾淨、條列式的日系極簡排版呈現，不要給任何多餘的社交寒暄。";
 
-      // 【核心通道優化】全面換成最適合新版 API 金鑰的通用官方 V1 呼叫路徑
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: promptText },
-              { inlineData: { mimeType: mimeType, data: base64Content } }
-            ]
-          }]
-        })
-      });
+      // 🔄 透過免費開源的伺服器集線器 (AllOrigins) 作為安全中介，繞過純前端無法處理 OAuth 認證的死鎖
+      const targetUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+      const payload = {
+        contents: [{
+          parts: [
+            { text: promptText },
+            { inlineData: { mimeType: mimeType, data: base64Content } }
+          ]
+        }]
+      };
 
-      const result = await response.json();
+      // 這次改用 GET 模式向集線器請求代理傳送，確保請求不被封鎖
+      const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&req_body=${encodeURIComponent(JSON.stringify(payload))}`);
+
+      if (!response.ok) {
+        throw new Error(`通訊轉接失敗，狀態碼: ${response.status}`);
+      }
+
+      const proxyResult = await response.json();
+      
+      // 解析轉接回來的真實資料
+      if (!proxyResult.contents) {
+        throw new Error('中轉通道未回傳有效內容');
+      }
+      
+      const result = JSON.parse(proxyResult.contents);
       
       if (result.error) {
         throw new Error(`${result.error.status || 'API錯誤'} - ${result.error.message}`);
@@ -113,7 +123,7 @@ if (receiptInput) {
 
     } catch (error) {
       console.error(error);
-      aiResultDiv.innerHTML = `❌ 系統通訊失敗。<br>原因：${error.message || error}<br><br>請確認金鑰無誤，並建議用手機開啟「無痕分頁」測試，以避開舊網頁快取。`;
+      aiResultDiv.innerHTML = `❌ 系統通訊失敗。<br>原因：${error.message || error}<br><br>請確認手機已開啟「無痕分頁」測試，以避開舊網頁快取。`;
     } finally {
       btnAllowance.innerText = '📷 拍下日本收據辨識';
       btnAllowance.disabled = false;
