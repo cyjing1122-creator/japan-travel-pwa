@@ -118,4 +118,45 @@ if (receiptInput) {
 
     } catch (error) {
       console.error(error);
-      aiResultDiv.innerHTML = `❌ 辨識失敗。<br>原因：${error.message || error}<br><br>💡 後台機制已順利對接，請確認專案環境無鎖定
+      aiResultDiv.innerHTML = `❌ 辨識失敗。<br>原因：${error.message || error}<br><br>💡 後台機制已順利對接，請確認專案環境無鎖定。`;
+    } finally {
+      // 恢復按鈕狀態
+      btnAllowance.innerText = '📷 拍下日本收據辨識';
+      btnAllowance.disabled = false;
+    }
+  });
+}
+
+// ====== 🖼️ 圖片壓縮與 Base64 轉換工具函數 ======
+function resizeAndGetBase64(file, maxWidth) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = function (event) {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = function () {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        // 計算縮放比例
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // 壓縮成 70% 品質的 JPEG
+        const base64Url = canvas.toDataURL('image/jpeg', 0.7);
+        resolve(base64Url.split(',')[1]); // 只要純 Base64 字串部分
+      };
+      img.onerror = reject;
+    };
+    reader.onerror = reject;
+  });
+}
