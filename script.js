@@ -55,7 +55,7 @@ window.onload = () => {
   }
 };
 
-// ====== 🤖 注入 Gemini AI 視覺辨識大腦 (原生官方直連安全版) ======
+// ====== 🤖 注入 Gemini AI 視覺辨識大腦 (Supabase 安全盾牌版) ======
 const receiptInput = document.getElementById('receipt-file');
 const btnAllowance = document.getElementById('btn-allowance');
 const aiResultDiv = document.getElementById('ai-result');
@@ -74,49 +74,42 @@ if (receiptInput) {
     btnAllowance.innerText = '⏳ AI 正在瘋狂辨識中...';
     btnAllowance.disabled = true;
     aiResultDiv.style.display = 'block';
-    aiResultDiv.innerHTML = '✨ 正在安全優化圖片並直送 Google Gemini 總部...';
+    aiResultDiv.innerHTML = '✨ 正在透過 Supabase 安全通道傳送至 Gemini...';
 
     try {
-      // 在前端將照片稍微壓小，確保手機上傳流暢
+      // 壓縮圖片
       const base64Content = await resizeAndGetBase64(file, 1024);
 
-      const promptText = "你是一位精通日文與日本稅務的記帳助理。請幫我精準分析這張日本收據或發票。請提取並用繁體中文回傳以下資訊：1. 店家名稱、2. 消費日期、3. 總消費金額 (含稅，請同時標示日圓及約略台幣換算)。如果可以，請簡短列出購買的核心商品清單。請用乾淨、條列式的日系極簡排版呈現，不要給任何多餘的社交寒暄。";
-
-      // 🔐 不走任何第三方中轉！直接使用標準 HTTPS 直連 Google 官方 API 節點
-      // 這裡直接內嵌你的專用密鑰，繞過瀏覽器前端環境變數的限制
-      const targetUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + 'AIzaSy' + 'AsFm_L' + 'Y3pYlY' + '_fJpY3' + 'D47nZ' + 'D91mX' + 'tA3hI';
-
-      const response = await fetch(targetUrl, {
+      // 🔐 改為呼叫我們剛剛在 Supabase 建立的安全後台函數 (RPC)
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/analyze_receipt_with_gemini`, {
         method: 'POST',
         headers: { 
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: promptText },
-              { inlineData: { mimeType: "image/jpeg", data: base64Content } }
-            ]
-          }]
+          image_base64: base64Content
         })
       });
+
+      if (!response.ok) {
+        throw new Error(`後台通道回應異常，請檢查 SQL 是否成功 Run。`);
+      }
 
       const result = await response.json();
       
       if (result.error) {
-        throw new Error(`Google 回報錯誤：${result.error.message}`);
+        throw new Error(`後台錯誤：${result.error.message}`);
       }
 
-      if (!result.candidates || result.candidates.length === 0) {
-        throw new Error('Gemini 沒有回傳任何內容，請換張清晰點的照片試試。');
-      }
-
+      // 解析 Gemini 回傳的標準格式
       const aiText = result.candidates[0].content.parts[0].text;
       aiResultDiv.innerHTML = `<strong>🤖 AI 智慧辨識成果：</strong><br><br>${aiText.replace(/\n/g, '<br>')}`;
 
     } catch (error) {
       console.error(error);
-      aiResultDiv.innerHTML = `❌ 辨識失敗。<br>原因：${error.message || error}<br><br>💡 如果出現安全限制，別擔心！代表我們必須要把這個功能搬進 Supabase 後台了。`;
+      aiResultDiv.innerHTML = `❌ 辨識失敗。<br>原因：${error.message || error}<br><br>💡 請確保 Supabase SQL 填入的金鑰完全正確！`;
     } finally {
       btnAllowance.innerText = '📷 拍下日本收據辨識';
       btnAllowance.disabled = false;
