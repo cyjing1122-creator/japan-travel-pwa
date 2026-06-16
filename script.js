@@ -9,7 +9,7 @@ window.onload = () => {
   const options = document.querySelectorAll('.plan-options .option');
   const tripBtn = document.getElementById("btn-trip");
 
-  // 1. 處理訂閱方案切換 (NT$ 99 / 399)
+  // 1. 處理訂閱方案切換
   if (options && options.length >= 2) {
     const planLeft = options[0];  
     const planRight = options[1]; 
@@ -27,7 +27,7 @@ window.onload = () => {
     };
   }
 
-  // 2. 處理購買行程按鈕 (NT$ 299)
+  // 2. 處理購買行程按鈕
   if (tripBtn) {
     tripBtn.onclick = async () => {
       alert("正在連線至行程資料庫，購買 NT$ 299 行程...");
@@ -59,35 +59,38 @@ window.onload = () => {
   }
 };
 
-// ====== 🤖 Gemini AI 視覺辨識 (Supabase Edge Function 完美對接版) ======
+// ====== 🤖 Gemini AI 視覺辨識 ======
 const receiptInput = document.getElementById('receipt-file');
 const btnAllowance = document.getElementById('btn-allowance');
 const aiResultDiv = document.getElementById('ai-result');
 
-// 點擊「拍下日本收據辨識」按鈕時，觸發隱藏的檔案選擇器
 if (btnAllowance) {
-  btnAllowance.addEventListener('click', () => {
-    receiptInput.click();
-  });
+  btnAllowance.onclick = () => {
+    if (receiptInput) {
+      receiptInput.click();
+    }
+  };
 }
 
-// 當使用者拍好照片或選好檔案時觸發
 if (receiptInput) {
-  receiptInput.addEventListener('change', async (e) => {
+  receiptInput.onchange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // 進入載入狀態，防止重複點擊
+    // 進入載入狀態
     btnAllowance.innerText = '⏳ AI 正在瘋狂辨識中...';
     btnAllowance.disabled = true;
-    aiResultDiv.style.display = 'block';
-    aiResultDiv.innerHTML = '✨ 正在透過 Supabase 獨立雲端函式直送 Gemini...';
+    
+    if (aiResultDiv) {
+      aiResultDiv.style.display = 'block';
+      aiResultDiv.innerHTML = '✨ 正在透過 Supabase 獨立雲端函式直送 Gemini...';
+    }
 
     try {
-      // 1. 在前端將照片優化縮放，確保手機上傳流暢不卡頓
+      // 1. 壓縮圖片
       const base64Content = await resizeAndGetBase64(file, 1024);
 
-      // 2. 精準呼叫我們剛剛在 Supabase 雲端建好的 Edge Function (analyze-receipt)
+      // 2. 呼叫 Edge Function
       const response = await fetch(`${SUPABASE_URL}/functions/v1/analyze-receipt`, {
         method: 'POST',
         headers: { 
@@ -102,32 +105,34 @@ if (receiptInput) {
 
       const result = await response.json();
       
-      // 檢查雲端回傳是否有錯誤
       if (result.error || result.error_details) {
         throw new Error(result.error || '雲端函式解析發生異常');
       }
 
-      // 3. 解析 Gemini 標準回傳的資料格式並渲染到畫面上
+      // 3. 渲染畫面
       if (result.candidates && result.candidates[0]) {
         const aiText = result.candidates[0].content.parts[0].text;
-        // 將換行符號轉為網頁的 <br> 標籤，保留漂亮的日系極簡排版
-        aiResultDiv.innerHTML = `<strong>🤖 AI 智慧辨識成果：</strong><br><br>${aiText.replace(/\n/g, '<br>')}`;
+        if (aiResultDiv) {
+          aiResultDiv.innerHTML = `<strong>🤖 AI 智慧辨識成果：</strong><br><br>${aiText.replace(/\n/g, '<br>')}`;
+        }
       } else {
         throw new Error('未能成功取得辨識文字，請確認金鑰狀態。');
       }
 
     } catch (error) {
       console.error(error);
-      aiResultDiv.innerHTML = `❌ 辨識失敗。<br>原因：${error.message || error}<br><br>💡 後台機制已順利對接，請確認專案環境無鎖定。`;
+      if (aiResultDiv) {
+        aiResultDiv.innerHTML = `❌ 辨識失敗。<br>原因：${error.message || error}`;
+      }
     } finally {
-      // 恢復按鈕狀態
+      // 🛡️ 安全防護：無論成功或失敗，絕對強制恢復按鈕可點擊狀態
       btnAllowance.innerText = '📷 拍下日本收據辨識';
       btnAllowance.disabled = false;
     }
-  });
+  };
 }
 
-// ====== 🖼️ 圖片壓縮與 Base64 轉換工具函數 ======
+// ====== 🖼️ 圖片壓縮工具 ======
 function resizeAndGetBase64(file, maxWidth) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -140,7 +145,6 @@ function resizeAndGetBase64(file, maxWidth) {
         let width = img.width;
         let height = img.height;
 
-        // 計算縮放比例
         if (width > maxWidth) {
           height = Math.round((height * maxWidth) / width);
           width = maxWidth;
@@ -151,9 +155,8 @@ function resizeAndGetBase64(file, maxWidth) {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
         
-        // 壓縮成 70% 品質的 JPEG
         const base64Url = canvas.toDataURL('image/jpeg', 0.7);
-        resolve(base64Url.split(',')[1]); // 只要純 Base64 字串部分
+        resolve(base64Url.split(',')[1]);
       };
       img.onerror = reject;
     };
