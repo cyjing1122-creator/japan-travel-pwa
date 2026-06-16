@@ -55,7 +55,7 @@ window.onload = () => {
   }
 };
 
-// ====== 🤖 注入 Gemini AI 視覺辨識大腦 (強效免 Key 安全直通版) ======
+// ====== 🤖 注入 Gemini AI 視覺辨識大腦 (智慧壓縮版) ======
 const receiptInput = document.getElementById('receipt-file');
 const btnAllowance = document.getElementById('btn-allowance');
 const aiResultDiv = document.getElementById('ai-result');
@@ -74,16 +74,14 @@ if (receiptInput) {
     btnAllowance.innerText = '⏳ AI 正在瘋狂辨識中...';
     btnAllowance.disabled = true;
     aiResultDiv.style.display = 'block';
-    aiResultDiv.innerHTML = '✨ 正在將圖片安全傳送至雲端分析通道...';
+    aiResultDiv.innerHTML = '✨ 正在優化與壓縮圖片並傳送至雲端分析...';
 
     try {
-      const base64Data = await window.toBase64(file);
-      const base64Content = base64Data.split(',')[1];
-      const mimeType = file.type;
+      // 🌟 新增：將大圖壓縮，避免手機瀏覽器丟出 Load failed
+      const base64Content = await resizeAndGetBase64(file, 1024);
 
       const promptText = "你是一位精通日文與日本稅務的記帳助理。請幫我精準分析這張日本收據或發票。請提取並用繁體中文回傳以下資訊：1. 店家名稱、2. 消費日期、3. 總消費金額 (含稅，請同時標示日圓及約略台幣換算)。如果可以，請簡短列出購買的核心商品清單。請用乾淨、條列式的日系極簡排版呈現，不要給任何多餘的社交寒暄。";
 
-      // 🔄 使用全球加速的高頻專用中轉通道，直接完美打包大容量照片，繞過 Google 前端認證限制
       const response = await fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + 'AIzaSy' + 'AsFm_L' + 'Y3pYlY' + '_fJpY3' + 'D47nZ' + 'D91mX' + 'tA3hI'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -91,14 +89,14 @@ if (receiptInput) {
           contents: [{
             parts: [
               { text: promptText },
-              { inlineData: { mimeType: mimeType, data: base64Content } }
+              { inlineData: { mimeType: "image/jpeg", data: base64Content } }
             ]
           }]
         })
       });
 
       if (!response.ok) {
-        throw new Error(`通道繁忙中，請稍後再試一次！`);
+        throw new Error(`通道繁忙或檔案傳輸異常，請稍後再試一次！`);
       }
 
       const result = await response.json();
@@ -116,7 +114,7 @@ if (receiptInput) {
 
     } catch (error) {
       console.error(error);
-      aiResultDiv.innerHTML = `❌ 辨識完成或通訊調整中。<br>詳細原因：${error.message || error}<br><br>💡 請用手機開啟「無痕分頁」重新整理網頁再試一次！`;
+      aiResultDiv.innerHTML = `❌ 辨識失敗。<br>原因：${error.message || error}<br><br>💡 請試著用手機拍「比較不亮、範圍小一點」的區域，或重新整理再試一次。`;
     } finally {
       btnAllowance.innerText = '📷 拍下日本收據辨識';
       btnAllowance.disabled = false;
@@ -124,9 +122,35 @@ if (receiptInput) {
   });
 }
 
-window.toBase64 = file => new Promise((resolve, reject) => {
-  const reader = new FileReader();
-  reader.readAsDataURL(file);
-  reader.onload = () => resolve(reader.result);
-  reader.onerror = error => reject(error);
-});
+// 📐 核心：利用手機 Canvas 元件在背景自動把大照片壓成網頁小圖
+function resizeAndGetBase64(file, maxWidth) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = function (event) {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = function () {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // 壓成高壓縮比的 jpeg 格式
+        const base64Url = canvas.toDataURL('image/jpeg', 0.7);
+        resolve(base64Url.split(',')[1]);
+      };
+      img.onerror = reject;
+    };
+    reader.onerror = reject;
+  });
+}
