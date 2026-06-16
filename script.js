@@ -109,14 +109,19 @@ if (receiptInput) {
         throw new Error(result.error || '雲端函式解析發生異常');
       }
 
-      // 3. 渲染畫面
-      if (result.candidates && result.candidates[0]) {
+      // 🎯 3. 完美對接：精準抓取 Supabase 新傳回來的 { text: ... } 結構
+      if (result.text) {
+        if (aiResultDiv) {
+          aiResultDiv.innerHTML = `<strong>🤖 AI 智慧辨識成果：</strong><br><br>${result.text.replace(/\n/g, '<br>')}`;
+        }
+      } else if (result.candidates && result.candidates[0]?.content?.parts?.[0]?.text) {
+        // 備用防線：兼容舊格式
         const aiText = result.candidates[0].content.parts[0].text;
         if (aiResultDiv) {
           aiResultDiv.innerHTML = `<strong>🤖 AI 智慧辨識成果：</strong><br><br>${aiText.replace(/\n/g, '<br>')}`;
         }
       } else {
-        throw new Error('未能成功取得辨識文字，請確認金鑰狀態。');
+        throw new Error('未能在回應中解析出有效的辨識文字。');
       }
 
     } catch (error) {
